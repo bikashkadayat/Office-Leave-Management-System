@@ -1,0 +1,10 @@
+Hi {{ recipient_name }},
+
+{{ title }}
+
+{{ body }}
+{% if action_url %}
+View in portal: {{ action_url }}
+{% endif %}
+--
+NIF Portal. Manage preferences / unsubscribe: {{ unsubscribe_url }}
