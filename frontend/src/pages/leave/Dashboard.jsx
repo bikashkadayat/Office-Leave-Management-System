@@ -4,6 +4,7 @@ import { useLeaves } from '../../hooks/useLeaves';
 import { useAuth } from '../../hooks/useAuth';
 import LeaveCard from '../../components/common/LeaveCard';
 import DashboardRecordsSummary from '../../components/leave-records/DashboardRecordsSummary';
+import DashboardMemoCard from '../../components/memo/DashboardMemoCard';
 import { CalendarDays, Stethoscope, Briefcase, Plane, Plus, ArrowRight, ClipboardCheck, Users, Calendar, FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
 
 const LeaveDashboard = () => {
@@ -69,6 +70,8 @@ const LeaveDashboard = () => {
             </div>
           </div>
         </div>
+
+        <DashboardMemoCard />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '32px' }}>
           <div className="side-card" style={{ padding: '24px', cursor: 'pointer' }} onClick={() => navigate('/leave/pending')}>
@@ -243,6 +246,8 @@ const LeaveDashboard = () => {
       </div>
 
       {/* Phase 6: enterprise leave-records summary (compact) */}
+      <DashboardMemoCard />
+
       <DashboardRecordsSummary />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '32px' }}>

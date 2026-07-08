@@ -53,6 +53,34 @@ const LeaveSidebar = () => {
       </div>
 
       <div className="sb-section">
+        <div className="sb-hd">Memos</div>
+        <NavLink to="/memos/create" className={({ isActive }) => `sb-item ${isActive ? 'on' : ''}`}>
+          <span className="sb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg></span>
+          Create Memo
+        </NavLink>
+        <NavLink to="/memos/my" className={({ isActive }) => `sb-item ${isActive ? 'on' : ''}`}>
+          <span className="sb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          My Memos
+        </NavLink>
+        <NavLink to="/memos" end className={({ isActive }) => `sb-item ${isActive ? 'on' : ''}`}>
+          <span className="sb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+          All Memos
+        </NavLink>
+        {(role === 'checker' || role === 'admin') && (
+          <NavLink to="/memos/pending-reviews" className={({ isActive }) => `sb-item ${isActive ? 'on' : ''}`}>
+            <span className="sb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+            Pending Reviews
+          </NavLink>
+        )}
+        {(role === 'approver' || role === 'admin') && (
+          <NavLink to="/memos/pending-approvals" className={({ isActive }) => `sb-item ${isActive ? 'on' : ''}`}>
+            <span className="sb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></span>
+            Pending Approvals
+          </NavLink>
+        )}
+      </div>
+
+      <div className="sb-section">
         <div className="sb-hd">My Records</div>
         <NavLink to="/leaves/my-history" className={({ isActive }) => `sb-item ${isActive ? 'on' : ''}`}>
           <span className="sb-ico">

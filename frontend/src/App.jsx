@@ -43,6 +43,14 @@ import FirstLoginPasswordChange from './pages/FirstLoginPasswordChange';
 import Unauthorized from './pages/Unauthorized';
 import UserManagement from './pages/admin/users/UserManagement';
 
+// Phase 3 - Memo module
+import MemoList from './pages/memo/MemoList';
+import CreateMemo from './pages/memo/CreateMemo';
+import MyMemos from './pages/memo/MyMemos';
+import MemoDetail from './pages/memo/MemoDetail';
+import PendingMemoReviews from './pages/memo/PendingMemoReviews';
+import PendingMemoApprovals from './pages/memo/PendingMemoApprovals';
+
 function App() {
   return (
     <BrowserRouter>
@@ -85,6 +93,14 @@ function App() {
 
           {/* Phase 9 - Notifications */}
           <Route path="notifications" element={<NotificationsPage />} />
+
+          {/* Phase 3 - Memos (specific paths before /memos/:id) */}
+          <Route path="memos" element={<MemoList />} />
+          <Route path="memos/create" element={<CreateMemo />} />
+          <Route path="memos/my" element={<MyMemos />} />
+          <Route path="memos/pending-reviews" element={<RequireAuth allowedRoles={['checker', 'admin']}><PendingMemoReviews /></RequireAuth>} />
+          <Route path="memos/pending-approvals" element={<RequireAuth allowedRoles={['approver', 'admin']}><PendingMemoApprovals /></RequireAuth>} />
+          <Route path="memos/:id" element={<MemoDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>
