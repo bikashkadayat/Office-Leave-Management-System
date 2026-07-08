@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
+import NotificationBell from '../notifications/NotificationBell.jsx';
 
 const Header = () => {
   const navigate = useNavigate();
@@ -25,7 +26,8 @@ const Header = () => {
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>B.S. 2082-12-18</span>
         </div>
       </div>
-      <div className="hd-right" style={{ marginLeft: 'auto' }}>
+      <div className="hd-right" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <NotificationBell />
         <div className="hd-user" onClick={() => navigate('/profile')} style={{ cursor: 'pointer' }}>
           <div className="hd-av" style={{ background: user?.initials ? user.color : '#999' }}>{user?.initials || 'U'}</div>
           <div>

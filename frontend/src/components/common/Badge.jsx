@@ -20,7 +20,6 @@ const Badge = ({ status }) => {
       label = 'Approved';
       break;
     case 'rejected':
-    case 'rejected':
       className += 'ch-rejected';
       label = 'Rejected';
       break;
