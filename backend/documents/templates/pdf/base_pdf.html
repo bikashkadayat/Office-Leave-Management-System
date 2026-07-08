@@ -1,0 +1,62 @@
+{% autoescape on %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @page {
+    size: A4;
+    margin: 1.8cm 1.6cm 2.4cm 1.6cm;
+    @bottom-center {
+      content: "Generated {{ generated_at }} · Verify at {{ verify_url }}";
+      font-size: 8px; color: #9ca3af;
+    }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8px; color: #9ca3af; }
+  }
+  /* Fonts fall back to Helvetica if the optional TTFs are not installed. */
+  body { font-family: "Inter", "Poppins", Helvetica, Arial, sans-serif; color: #1f2937; font-size: 12px; line-height: 1.55; }
+  .letterhead { border-bottom: 3px solid #2563EB; padding-bottom: 12px; margin-bottom: 6px; }
+  .org-name { font-size: 20px; font-weight: 700; color: #111827; }
+  .org-meta { font-size: 10px; color: #6b7280; margin-top: 2px; }
+  .doc-meta { text-align: right; font-size: 10px; color: #6b7280; }
+  .doc-number { font-size: 12px; font-weight: 700; color: #2563EB; }
+  h1.title { font-size: 17px; margin: 18px 0 4px; color: #111827; }
+  .muted { color: #6b7280; }
+  table.kv { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  table.kv td { padding: 4px 6px; vertical-align: top; font-size: 12px; }
+  table.kv td.k { color: #6b7280; width: 90px; }
+  .section-title { font-size: 12px; font-weight: 700; color: #2563EB; text-transform: uppercase; letter-spacing: .4px; margin: 18px 0 6px; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; }
+  .trail td, .trail th { padding: 5px 8px; font-size: 11px; border-bottom: 1px solid #eee; text-align: left; }
+  .trail th { color: #6b7280; text-transform: uppercase; font-size: 9px; }
+  .sign-grid { display: flex; justify-content: space-between; margin-top: 30px; }
+  .sign-box { width: 45%; }
+  .sign-line { border-top: 1px solid #374151; margin-top: 34px; padding-top: 4px; font-size: 11px; }
+  .footer-qr { position: running(qr); }
+  .qr-block { margin-top: 24px; display: flex; align-items: center; gap: 12px; }
+  .qr-block img { width: 84px; height: 84px; }
+  .qr-note { font-size: 9px; color: #6b7280; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
+</style>
+</head>
+<body>
+  <table style="width:100%"><tr>
+    <td class="letterhead" style="border:none;">
+      <div class="org-name">{{ org.name }}</div>
+      <div class="org-meta">{{ org.address }} · Tel: {{ org.tel }} · {{ org.email }} · {{ org.website }}</div>
+    </td>
+    <td class="doc-meta" style="border-bottom:3px solid #2563EB;padding-bottom:12px;">
+      <div class="doc-number">{{ document_number }}</div>
+      <div>Date: {{ issue_date }}</div>
+    </td>
+  </tr></table>
+
+  {% block content %}{% endblock %}
+
+  <div class="qr-block">
+    <img src="{{ verify_qr }}" alt="Verification QR code">
+    <div class="qr-note">
+      <b>Authenticity:</b> Scan the QR code or visit<br>{{ verify_url }}<br>
+      to verify this document's validity.
+    </div>
+  </div>
+</body>
+</html>{% endautoescape %}
