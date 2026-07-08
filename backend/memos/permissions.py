@@ -75,6 +75,11 @@ class CanViewMemo(permissions.BasePermission):
         if role == User.Roles.ADMIN:
             return True
 
+        # Phase 2: any role can author a memo, so the author can always view
+        # (and manage) their own memo regardless of role or workflow stage.
+        if obj.created_by_id == user.id:
+            return True
+
         if role == User.Roles.MAKER:
             return obj.created_by_id == user.id
 

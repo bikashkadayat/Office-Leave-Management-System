@@ -40,7 +40,13 @@ class Memo(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memos_created", db_index=True)
-    current_reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="memos_to_review")
+    current_reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="memos_to_review",
+        help_text="The user assigned as CHECKER for this memo. Displayed as "
+                  "'Checker' in the UI. Field kept as 'current_reviewer' to "
+                  "avoid a rename migration.",
+    )
     current_approver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="memos_to_approve", db_index=True)
 
     attachment = models.FileField(upload_to="memos/attachments/%Y/%m/", null=True, blank=True)

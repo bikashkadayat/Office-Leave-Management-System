@@ -141,14 +141,18 @@ class MemoDetailSerializer(serializers.ModelSerializer):
 
 class MemoCreateSerializer(serializers.ModelSerializer):
     """
-    Write serializer used by makers to create a draft memo.
+    Write serializer used to create a draft memo (any authenticated user).
 
     created_by / status / memo_number are injected by the view layer
     (thin-serializer, fat-service convention) - see MemoViewSet.perform_create.
+    id / memo_number / status are returned read-only so the client can navigate
+    to the new memo and show its number after creation.
     """
     class Meta:
         model = Memo
-        fields = ["title", "subject", "body", "memo_type", "priority", "attachment"]
+        fields = ["id", "memo_number", "status", "title", "subject", "body",
+                  "memo_type", "priority", "attachment"]
+        read_only_fields = ["id", "memo_number", "status"]
 
     def validate_attachment(self, value):
         if value is None:

@@ -54,9 +54,12 @@ def test_wrong_checker_cannot_review(api, draft_memo, maker, checker, other_chec
 
 @pytest.mark.django_db
 def test_approver_cannot_submit(api, draft_memo, maker, approver):
+    # Phase 2: submit is author-gated (any role may create/submit their OWN
+    # memo). An approver still cannot submit a memo they did not author — the
+    # maker's draft is outside the approver's queryset, so it is denied (404).
     api.force_authenticate(approver)
     resp = api.post(f"/api/v1/memos/{draft_memo.id}/submit/")
-    assert resp.status_code == 403
+    assert resp.status_code in (403, 404)
 
 
 @pytest.mark.django_db

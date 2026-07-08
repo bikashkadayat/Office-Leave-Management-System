@@ -1,7 +1,6 @@
 from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -14,7 +13,6 @@ from .permissions import (
     CanViewMemo,
     IsMemoApprover,
     IsMemoChecker,
-    IsMemoMaker,
 )
 from .serializers import (
     MemoActionSerializer,
@@ -22,6 +20,7 @@ from .serializers import (
     MemoDetailSerializer,
     MemoListSerializer,
     MemoTemplateSerializer,
+    UserMiniSerializer,
 )
 
 
@@ -46,13 +45,15 @@ class MemoViewSet(viewsets.ModelViewSet):
 
         if user.role == User.Roles.CHECKER:
             return qs.filter(
-                Q(current_reviewer=user)
+                Q(created_by=user)  # own memos (any role can create)
+                | Q(current_reviewer=user)
                 | Q(status__in=[Memo.Status.SUBMITTED, Memo.Status.UNDER_REVIEW])
             ).distinct()
 
         if user.role == User.Roles.APPROVER:
             return qs.filter(
-                Q(current_approver=user)
+                Q(created_by=user)  # own memos (any role can create)
+                | Q(current_approver=user)
                 | Q(status__in=[
                     Memo.Status.UNDER_REVIEW,
                     Memo.Status.APPROVED,
@@ -70,9 +71,10 @@ class MemoViewSet(viewsets.ModelViewSet):
         return MemoDetailSerializer
 
     def perform_create(self, serializer):
+        # Phase 2: any authenticated user (maker, checker, approver, admin) may
+        # create a memo — enterprise policy. Checker/approver privileges remain
+        # scoped to their workflow actions (review/approve) via object perms.
         user = self.request.user
-        if user.role not in [User.Roles.MAKER, User.Roles.ADMIN]:
-            raise PermissionDenied("Only makers can create memos.")
         memo_type = serializer.validated_data.get("memo_type", Memo.MemoType.GENERAL)
         memo_number = services.generate_memo_number(memo_type)
         memo = serializer.save(
@@ -94,10 +96,17 @@ class MemoViewSet(viewsets.ModelViewSet):
         return serializer.validated_data.get("comment", "")
 
     @action(detail=True, methods=["post"], url_path="submit",
-            permission_classes=[IsAuthenticated, IsMemoMaker])
+            permission_classes=[IsAuthenticated])
     def submit(self, request, pk=None):
+        # Any authenticated author may submit their own memo (the service
+        # enforces created_by == actor); optional override_reviewer_id lets the
+        # author pick a specific checker, else it auto-resolves by department.
         memo = self.get_object()
-        result = services.submit_memo(memo, request.user, request=request)
+        result = services.submit_memo(
+            memo, request.user,
+            override_reviewer_id=request.data.get("override_reviewer_id"),
+            request=request,
+        )
         return self._detail_response(result)
 
     @action(detail=True, methods=["post"], url_path="review",
@@ -105,7 +114,11 @@ class MemoViewSet(viewsets.ModelViewSet):
     def review(self, request, pk=None):
         comment = self._action_comment(request)
         memo = self.get_object()
-        result = services.review_memo(memo, request.user, comment, request=request)
+        result = services.review_memo(
+            memo, request.user, comment,
+            override_approver_id=request.data.get("override_approver_id"),
+            request=request,
+        )
         return self._detail_response(result)
 
     @action(detail=True, methods=["post"], url_path="approve",
@@ -133,12 +146,27 @@ class MemoViewSet(viewsets.ModelViewSet):
         return self._detail_response(result)
 
     @action(detail=True, methods=["post"], url_path="cancel",
-            permission_classes=[IsAuthenticated, IsMemoMaker])
+            permission_classes=[IsAuthenticated])
     def cancel(self, request, pk=None):
+        # Author-only (enforced by the service); any role may cancel own draft.
         comment = self._action_comment(request)
         memo = self.get_object()
         result = services.cancel_memo(memo, request.user, comment, request=request)
         return self._detail_response(result)
+
+    @action(detail=False, methods=["get"], url_path="available-checkers",
+            permission_classes=[IsAuthenticated])
+    def available_checkers(self, request):
+        """Active checkers for the maker's optional 'assign checker' dropdown."""
+        qs = User.objects.filter(role=User.Roles.CHECKER, is_active=True).order_by("first_name", "username")
+        return Response(UserMiniSerializer(qs, many=True).data)
+
+    @action(detail=False, methods=["get"], url_path="available-approvers",
+            permission_classes=[IsAuthenticated])
+    def available_approvers(self, request):
+        """Active approvers for the checker's optional 'assign approver' dropdown."""
+        qs = User.objects.filter(role=User.Roles.APPROVER, is_active=True).order_by("first_name", "username")
+        return Response(UserMiniSerializer(qs, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="pdf")
     def pdf(self, request, pk=None):

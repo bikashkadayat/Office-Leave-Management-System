@@ -202,15 +202,39 @@ def resolve_next_approver(memo):
 # ---------------------------------------------------------------------------
 # Workflow transitions
 # ---------------------------------------------------------------------------
+def _resolve_manual_assignee(user_id, allowed_roles, actor, kind):
+    """
+    Validate a manually-picked checker/approver for hybrid assignment.
+    Rules: must exist, be active, hold an allowed role, and not be the actor.
+    Raises ValidationError (-> HTTP 400) on any violation.
+    """
+    target = User.objects.filter(pk=user_id).first()
+    if target is None:
+        raise ValidationError({f"{kind}_id": f"Selected {kind} does not exist."})
+    if not target.is_active:
+        raise ValidationError({f"{kind}_id": f"Selected {kind} is inactive."})
+    if target.role not in allowed_roles:
+        raise ValidationError({f"{kind}_id": f"Selected user is not a valid {kind}."})
+    if target.id == actor.id:
+        raise ValidationError({f"{kind}_id": f"You cannot assign yourself as the {kind}."})
+    return target
+
+
 @transaction.atomic
-def submit_memo(memo, actor, request=None):
+def submit_memo(memo, actor, override_reviewer_id=None, request=None):
     memo = _lock(memo)
     if memo.status != Memo.Status.DRAFT:
         raise ValidationError("Only draft memos can be submitted.")
     if memo.created_by_id != actor.id:
         raise ValidationError("Only the author can submit this memo.")
 
-    reviewer = resolve_next_reviewer(memo)
+    # Hybrid assignment: use the maker's chosen checker when provided, else
+    # auto-resolve by department config (existing default behavior).
+    if override_reviewer_id:
+        reviewer = _resolve_manual_assignee(
+            override_reviewer_id, [User.Roles.CHECKER, User.Roles.ADMIN], actor, "checker")
+    else:
+        reviewer = resolve_next_reviewer(memo)
     if reviewer is None:
         raise ValidationError("No active checker is available to review this memo.")
 
@@ -230,14 +254,19 @@ def submit_memo(memo, actor, request=None):
 
 
 @transaction.atomic
-def review_memo(memo, actor, comment="", request=None):
+def review_memo(memo, actor, comment="", override_approver_id=None, request=None):
     memo = _lock(memo)
     if memo.status != Memo.Status.SUBMITTED:
         raise ValidationError("Only submitted memos can be reviewed.")
     if memo.current_reviewer_id != actor.id:
         raise ValidationError("Only the assigned reviewer can review this memo.")
 
-    approver = resolve_next_approver(memo)
+    # Hybrid assignment: checker may pick the approver, else auto-resolve.
+    if override_approver_id:
+        approver = _resolve_manual_assignee(
+            override_approver_id, [User.Roles.APPROVER, User.Roles.ADMIN], actor, "approver")
+    else:
+        approver = resolve_next_approver(memo)
     if approver is None:
         raise ValidationError("No active approver is available for this memo.")
 

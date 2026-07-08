@@ -1,0 +1,100 @@
+"""Phase 2: universal memo creation + hybrid checker/approver assignment."""
+import pytest
+
+from memos.models import Memo
+from users.models import User
+
+
+def _payload():
+    return {"title": "T", "subject": "S", "body": "B", "memo_type": "general", "priority": "normal"}
+
+
+def _draft_by(api, user):
+    api.force_authenticate(user)
+    resp = api.post("/api/v1/memos/", _payload(), format="json")
+    assert resp.status_code == 201, resp.data
+    return resp.data["id"]
+
+
+# --- STEP 2.2: universal creation ------------------------------------------
+@pytest.mark.django_db
+@pytest.mark.parametrize("role_fixture", ["maker", "checker", "approver", "admin"])
+def test_any_authenticated_user_can_create_memo(api, request, role_fixture):
+    user = request.getfixturevalue(role_fixture)
+    api.force_authenticate(user)
+    resp = api.post("/api/v1/memos/", _payload(), format="json")
+    assert resp.status_code == 201, resp.data
+    assert Memo.objects.get(id=resp.data["id"]).created_by_id == user.id
+
+
+@pytest.mark.django_db
+def test_unauthenticated_cannot_create_memo(api):
+    assert api.post("/api/v1/memos/", _payload(), format="json").status_code == 401
+
+
+# --- STEP 2.3: hybrid checker assignment -----------------------------------
+@pytest.mark.django_db
+def test_submit_with_manual_checker_uses_specified_user(api, maker, checker, other_checker, approver):
+    mid = _draft_by(api, maker)
+    api.force_authenticate(maker)
+    resp = api.post(f"/api/v1/memos/{mid}/submit/", {"override_reviewer_id": str(other_checker.id)}, format="json")
+    assert resp.status_code == 200, resp.data
+    assert str(resp.data["current_reviewer"]["id"]) == str(other_checker.id)
+
+
+@pytest.mark.django_db
+def test_submit_without_manual_checker_uses_auto_resolve(api, maker, checker, approver):
+    mid = _draft_by(api, maker)
+    api.force_authenticate(maker)
+    resp = api.post(f"/api/v1/memos/{mid}/submit/", {}, format="json")
+    assert resp.status_code == 200, resp.data
+    assert resp.data["current_reviewer"] is not None  # auto-resolved to a checker
+
+
+@pytest.mark.django_db
+def test_submit_with_invalid_checker_role_returns_400(api, maker, approver, checker):
+    mid = _draft_by(api, maker)
+    api.force_authenticate(maker)
+    resp = api.post(f"/api/v1/memos/{mid}/submit/", {"override_reviewer_id": str(approver.id)}, format="json")
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+def test_submit_with_self_as_checker_returns_400(api, checker, approver):
+    # A checker authors a memo and tries to assign themselves as its checker.
+    mid = _draft_by(api, checker)
+    api.force_authenticate(checker)
+    resp = api.post(f"/api/v1/memos/{mid}/submit/", {"override_reviewer_id": str(checker.id)}, format="json")
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+def test_submit_with_inactive_checker_returns_400(api, maker, checker):
+    inactive = User.objects.create_user(
+        username="inactive_chk", email="ic@nif.test", password="pass12345",
+        role=User.Roles.CHECKER, is_active=False,
+    )
+    mid = _draft_by(api, maker)
+    api.force_authenticate(maker)
+    resp = api.post(f"/api/v1/memos/{mid}/submit/", {"override_reviewer_id": str(inactive.id)}, format="json")
+    assert resp.status_code == 400
+
+
+# --- available-* dropdown endpoints ----------------------------------------
+@pytest.mark.django_db
+def test_available_checkers_endpoint_returns_only_checkers(api, maker, checker, other_checker, approver):
+    api.force_authenticate(maker)
+    resp = api.get("/api/v1/memos/available-checkers/")
+    assert resp.status_code == 200
+    assert {u["role"] for u in resp.data} == {"checker"}
+    ids = {str(u["id"]) for u in resp.data}
+    assert str(checker.id) in ids and str(other_checker.id) in ids
+
+
+@pytest.mark.django_db
+def test_available_approvers_endpoint_returns_only_approvers(api, maker, approver, checker):
+    api.force_authenticate(maker)
+    resp = api.get("/api/v1/memos/available-approvers/")
+    assert resp.status_code == 200
+    assert {u["role"] for u in resp.data} == {"approver"}
+    assert str(approver.id) in {str(u["id"]) for u in resp.data}
