@@ -1,0 +1,38 @@
+{% extends "pdf/base_pdf.html" %}
+{% block content %}
+  <h1 class="title">Office Memo</h1>
+  <div class="muted" style="font-size:11px;">{{ memo.get_memo_type_display }} · Priority: {{ memo.get_priority_display }} · <span class="badge">Approved</span></div>
+
+  <table class="kv">
+    <tr><td class="k">To</td><td>{{ to_name }}</td></tr>
+    <tr><td class="k">From</td><td>{{ from_name }}</td></tr>
+    {% if cc_name %}<tr><td class="k">CC</td><td>{{ cc_name }}</td></tr>{% endif %}
+    <tr><td class="k">Subject</td><td><b>{{ memo.subject }}</b></td></tr>
+  </table>
+
+  <div class="section-title">Memo</div>
+  <div>{{ body_html|safe }}</div>
+
+  <div class="section-title">Approval trail</div>
+  <table class="trail" style="width:100%">
+    <tr><th>#</th><th>Action</th><th>By</th><th>When</th><th>Comment</th></tr>
+    {% for step in steps %}
+      <tr>
+        <td>{{ step.step_order }}</td>
+        <td>{{ step.get_action_display }}</td>
+        <td>{{ step.actor_name }}</td>
+        <td>{{ step.acted_at|date:"Y-m-d H:i" }}</td>
+        <td>{{ step.comment }}</td>
+      </tr>
+    {% endfor %}
+  </table>
+
+  <div class="sign-grid">
+    <div class="sign-box">
+      <div class="sign-line">{{ approver_name }}<br><span class="muted">Approver</span></div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-line">{{ from_name }}<br><span class="muted">Author</span></div>
+    </div>
+  </div>
+{% endblock %}
