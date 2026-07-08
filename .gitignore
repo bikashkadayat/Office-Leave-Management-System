@@ -108,3 +108,8 @@ dist-ssr
 /venv
 __pycache__/
 *.pyc
+
+# Uploaded media (profile photos, report files, memo attachments)
+media/
+backend/media/
+backend/logs/
