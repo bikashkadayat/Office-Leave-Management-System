@@ -48,6 +48,8 @@ export const leaveService = {
     const response = await api.get('/leaves/');
     // /leaves/ is DRF-paginated ({count,results}); unwrap before mapping so the
     // list never silently becomes empty (regression from global pagination).
+    // TODO(deferred): fetches only the first page (50 leaves). Add a page_size
+    // param or pagination UI when a single user can exceed 50 applications.
     return { data: unwrapPaginated(response).map(mapLeave) };
   },
 

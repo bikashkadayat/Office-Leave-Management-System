@@ -50,6 +50,10 @@ class Leave(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     approver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="leaves_to_approve")
 
+    # TODO(deferred, Phase 5 candidate): add a `rejection_comment` field so an
+    # approver's reason is stored and shown to the maker. The current model has
+    # no way to capture why a leave was rejected (set_status only flips status).
+
     # Phase 5: soft-delete. Leaves with approved day records are never hard
     # deleted (integrity); they are flagged here instead.
     is_deleted = models.BooleanField(default=False)
