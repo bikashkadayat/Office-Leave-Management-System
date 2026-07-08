@@ -1,4 +1,5 @@
 import api from './api';
+import { unwrapPaginated } from './utils';
 
 const leaveTypeMap = {
   'Annual Leave': 'annual',
@@ -45,7 +46,9 @@ const toBackendPayload = (data) => ({
 export const leaveService = {
   getAll: async () => {
     const response = await api.get('/leaves/');
-    return { data: response.data.map(mapLeave) };
+    // /leaves/ is DRF-paginated ({count,results}); unwrap before mapping so the
+    // list never silently becomes empty (regression from global pagination).
+    return { data: unwrapPaginated(response).map(mapLeave) };
   },
 
   getBalances: async () => {
