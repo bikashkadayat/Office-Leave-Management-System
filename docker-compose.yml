@@ -33,11 +33,44 @@ services:
       - DATABASE_NAME=leave_system
       - DATABASE_USER=leave_user
       - DATABASE_PASSWORD=leave_password_123
+      - DJANGO_SECRET_KEY=change-this-to-a-secure-random-key-in-production
+      - DJANGO_DEBUG=False
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./backend:/app
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v1/health/').status==200 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Scheduled jobs (Phase 5) - same image as backend, runs cron in the foreground.
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: nif-cron
+    environment:
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=leave_system
+      - DATABASE_USER=leave_user
+      - DATABASE_PASSWORD=leave_password_123
+      - DJANGO_SECRET_KEY=change-this-to-a-secure-random-key-in-production
+      - DJANGO_DEBUG=False
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    # Persist the runtime env for cron jobs (cron strips the environment),
+    # install the crontab, and run cron in the foreground.
+    command: >
+      bash -c "printenv | grep -E '^(DATABASE_|DJANGO_)' > /etc/environment &&
+               crontab /app/deploy/crontab &&
+               cron -f"
 
   # React Frontend (Vite)
   frontend:
@@ -48,7 +81,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://localhost:8001
     depends_on:
       - backend
     volumes:
