@@ -17,6 +17,7 @@ from . import services
 from .models import Memo, MemoTemplate
 from .sanitizers import sanitize_memo_html
 from .permissions import (
+    SENSITIVE_MEMO_TYPES,
     CanViewMemo,
     IsMemoApprover,
     IsMemoChecker,
@@ -56,17 +57,16 @@ class MemoViewSet(viewsets.ModelViewSet):
             return qs.filter(created_by=user)
 
         if user.role == User.Roles.CHECKER:
+            base = Q(created_by=user) | Q(current_reviewer=user)
             return qs.filter(
-                Q(created_by=user)  # own memos (any role can create)
-                | Q(current_reviewer=user)
-                | Q(status__in=[Memo.Status.SUBMITTED, Memo.Status.UNDER_REVIEW])
+                base | self._pool_q(
+                    user, [Memo.Status.SUBMITTED, Memo.Status.UNDER_REVIEW])
             ).distinct()
 
         if user.role == User.Roles.APPROVER:
+            base = Q(created_by=user) | Q(current_approver=user)
             return qs.filter(
-                Q(created_by=user)  # own memos (any role can create)
-                | Q(current_approver=user)
-                | Q(status__in=[
+                base | self._pool_q(user, [
                     Memo.Status.UNDER_REVIEW,
                     Memo.Status.APPROVED,
                     Memo.Status.REJECTED,
@@ -74,6 +74,21 @@ class MemoViewSet(viewsets.ModelViewSet):
             ).distinct()
 
         return qs.none()
+
+    @staticmethod
+    def _pool_q(user, statuses):
+        """
+        Same-department, non-sensitive pool for a checker/approver (M1). If the
+        user has no department, the pool is empty (returns a never-match Q) so
+        null departments do not collapse into "see everything".
+        """
+        if not getattr(user, "department", None):
+            return Q(pk__in=[])
+        return (
+            Q(status__in=statuses)
+            & Q(created_by__department=user.department)
+            & ~Q(memo_type__in=SENSITIVE_MEMO_TYPES)
+        )
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -95,6 +110,32 @@ class MemoViewSet(viewsets.ModelViewSet):
         )
         services.create_audit_log(
             user, AuditLog.Action.CREATE, instance=memo, request=self.request
+        )
+
+    @action(detail=False, methods=["post"], url_path="create-and-submit",
+            permission_classes=[IsAuthenticated])
+    def create_and_submit(self, request):
+        """
+        Create a memo and submit it for review in one atomic step (M2). If the
+        submit fails (e.g. no active checker, invalid override), the whole thing
+        rolls back so no orphaned draft is left behind.
+        """
+        from django.db import transaction
+
+        serializer = MemoCreateSerializer(data=request.data, context=self.get_serializer_context())
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            memo = serializer.save(created_by=request.user, status=Memo.Status.DRAFT)
+            services.create_audit_log(
+                request.user, AuditLog.Action.CREATE, instance=memo, request=request)
+            memo = services.submit_memo(
+                memo, request.user,
+                override_reviewer_id=request.data.get("override_reviewer_id"),
+                request=request,
+            )
+        return Response(
+            MemoDetailSerializer(memo, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
         )
 
     def _detail_response(self, memo):

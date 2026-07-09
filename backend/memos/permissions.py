@@ -1,10 +1,21 @@
 from rest_framework import permissions
 
 from users.models import User
+from .models import Memo
+
+# Sensitive memo types are never visible to the department "pool" - only the
+# author, the assigned reviewer/approver and admins may see them (M1).
+SENSITIVE_MEMO_TYPES = {Memo.MemoType.FINANCIAL, Memo.MemoType.HR}
 
 
 def _is_admin(user):
     return getattr(user, "role", None) == User.Roles.ADMIN
+
+
+def _same_department(user, obj):
+    dept = getattr(user, "department", None)
+    author_dept = getattr(obj.created_by, "department", None)
+    return bool(dept) and dept == author_dept
 
 
 class IsMemoMaker(permissions.BasePermission):
@@ -55,9 +66,13 @@ class CanViewMemo(permissions.BasePermission):
     entitled to the specific memo.
 
         Maker    -> own memos only
-        Checker  -> memos they review, plus the shared review pool
-        Approver -> memos assigned to them, plus anything under_review or later
+        Checker  -> memos they review, plus a same-department review pool
+        Approver -> memos assigned to them, plus a same-department pool
         Admin    -> everything
+
+    The pool is scoped to the actor's department and excludes sensitive
+    (financial/HR) memo types, so a checker/approver cannot browse another
+    department's memos or any sensitive memo they are not assigned to (M1).
     """
 
     # Statuses a memo has reached (or passed) the approver stage at.
@@ -84,15 +99,20 @@ class CanViewMemo(permissions.BasePermission):
             return obj.created_by_id == user.id
 
         if role == User.Roles.CHECKER:
-            return (
-                obj.current_reviewer_id == user.id
-                or obj.status in self.CHECKER_POOL_STATUSES
-            )
+            if obj.current_reviewer_id == user.id:
+                return True
+            return self._in_pool(user, obj, self.CHECKER_POOL_STATUSES)
 
         if role == User.Roles.APPROVER:
-            return (
-                obj.current_approver_id == user.id
-                or obj.status in self.APPROVER_VISIBLE_STATUSES
-            )
+            if obj.current_approver_id == user.id:
+                return True
+            return self._in_pool(user, obj, self.APPROVER_VISIBLE_STATUSES)
 
         return False
+
+    def _in_pool(self, user, obj, statuses):
+        return (
+            obj.memo_type not in SENSITIVE_MEMO_TYPES
+            and obj.status in statuses
+            and _same_department(user, obj)
+        )
