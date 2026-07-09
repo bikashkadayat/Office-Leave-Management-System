@@ -1,6 +1,6 @@
 import uuid
 from django.conf import settings
-from django.db import models, transaction
+from django.db import models
 from django.utils import timezone
 
 
@@ -71,21 +71,13 @@ class Memo(models.Model):
         ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):
+        # H2: a single canonical generator (memos.services.generate_memo_number)
+        # is the only source of memo numbers, so every creation path (API, ORM,
+        # admin) yields the same typed format NIFN-{TYPE}-{YEAR}-{SEQ}.
         if not self.memo_number:
-            with transaction.atomic():
-                year = timezone.now().year
-                prefix = f"NIFN-MEMO-{year}-"
-                last = (
-                    Memo.objects.select_for_update()
-                    .filter(memo_number__startswith=prefix)
-                    .order_by("-memo_number")
-                    .first()
-                )
-                last_seq = int(last.memo_number.rsplit("-", 1)[-1]) if last else 0
-                self.memo_number = f"{prefix}{last_seq + 1:04d}"
-                super().save(*args, **kwargs)
-        else:
-            super().save(*args, **kwargs)
+            from . import services
+            self.memo_number = services.generate_memo_number(self.memo_type)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.memo_number} - {self.title}"

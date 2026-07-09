@@ -76,12 +76,11 @@ class MemoViewSet(viewsets.ModelViewSet):
         # create a memo — enterprise policy. Checker/approver privileges remain
         # scoped to their workflow actions (review/approve) via object perms.
         user = self.request.user
-        memo_type = serializer.validated_data.get("memo_type", Memo.MemoType.GENERAL)
-        memo_number = services.generate_memo_number(memo_type)
+        # H2: memo_number is assigned by Memo.save() via the single canonical
+        # generator; do not mint it here (that was a second, divergent path).
         memo = serializer.save(
             created_by=user,
             status=Memo.Status.DRAFT,
-            memo_number=memo_number,
         )
         services.create_audit_log(
             user, AuditLog.Action.CREATE, instance=memo, request=self.request
