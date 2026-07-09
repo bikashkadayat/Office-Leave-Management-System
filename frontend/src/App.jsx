@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
@@ -6,7 +6,7 @@ import RoleLanding from './pages/RoleLanding';
 import Profile from './pages/Profile';
 import RequireAuth from './components/common/RequireAuth';
 
-// Leave Pages
+// Leave Pages (core, kept eager for a fast first paint)
 import LeaveDashboard from './pages/leave/Dashboard';
 import ApplyLeave from './pages/leave/ApplyLeave';
 import MyApplications from './pages/leave/MyApplications';
@@ -16,24 +16,7 @@ import TeamCalendar from './pages/leave/TeamCalendar';
 // Phase 6 - Enterprise Leave Records pages
 import MyLeaveHistory from './pages/leave/records/MyLeaveHistory';
 import MyLeaveCalendar from './pages/leave/records/MyLeaveCalendar';
-import WeeklyReport from './pages/leave/records/WeeklyReport';
-import MonthlyReport from './pages/leave/records/MonthlyReport';
 import TeamAttendance from './pages/leave/records/TeamAttendance';
-
-// Phase 7 - HR/Admin pages
-import EmployeeList from './pages/admin/leaves/EmployeeList';
-import EmployeeDetail from './pages/admin/leaves/EmployeeDetail';
-import PolicyManagement from './pages/admin/leaves/PolicyManagement';
-import HolidayManagement from './pages/admin/leaves/HolidayManagement';
-import DepartmentManagement from './pages/admin/leaves/DepartmentManagement';
-import LeaveTypeManagement from './pages/admin/leaves/LeaveTypeManagement';
-import BulkActions from './pages/admin/leaves/BulkActions';
-
-// Phase 8 - Reports & Analytics
-import ReportsHub from './pages/reports/ReportsHub';
-import ReportBuilder from './pages/reports/ReportBuilder';
-import ReportHistory from './pages/reports/ReportHistory';
-import Analytics from './pages/admin/Analytics';
 
 // Phase 9 - Notifications
 import NotificationsPage from './pages/NotificationsPage';
@@ -41,19 +24,38 @@ import NotificationsPage from './pages/NotificationsPage';
 // Phase 2.5 - Auth / User Management
 import FirstLoginPasswordChange from './pages/FirstLoginPasswordChange';
 import Unauthorized from './pages/Unauthorized';
-import UserManagement from './pages/admin/users/UserManagement';
 
-// Phase 3 - Memo module
-import MemoList from './pages/memo/MemoList';
-import CreateMemo from './pages/memo/CreateMemo';
-import MyMemos from './pages/memo/MyMemos';
-import MemoDetail from './pages/memo/MemoDetail';
-import PendingMemoReviews from './pages/memo/PendingMemoReviews';
-import PendingMemoApprovals from './pages/memo/PendingMemoApprovals';
+// L2: code-split the heavy/less-frequent route groups. recharts (reports +
+// analytics), the admin consoles, and the TipTap-backed memo pages load on
+// demand instead of bloating the initial bundle.
+const WeeklyReport = lazy(() => import('./pages/leave/records/WeeklyReport'));
+const MonthlyReport = lazy(() => import('./pages/leave/records/MonthlyReport'));
+
+const EmployeeList = lazy(() => import('./pages/admin/leaves/EmployeeList'));
+const EmployeeDetail = lazy(() => import('./pages/admin/leaves/EmployeeDetail'));
+const PolicyManagement = lazy(() => import('./pages/admin/leaves/PolicyManagement'));
+const HolidayManagement = lazy(() => import('./pages/admin/leaves/HolidayManagement'));
+const DepartmentManagement = lazy(() => import('./pages/admin/leaves/DepartmentManagement'));
+const LeaveTypeManagement = lazy(() => import('./pages/admin/leaves/LeaveTypeManagement'));
+const BulkActions = lazy(() => import('./pages/admin/leaves/BulkActions'));
+const UserManagement = lazy(() => import('./pages/admin/users/UserManagement'));
+
+const ReportsHub = lazy(() => import('./pages/reports/ReportsHub'));
+const ReportBuilder = lazy(() => import('./pages/reports/ReportBuilder'));
+const ReportHistory = lazy(() => import('./pages/reports/ReportHistory'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
+
+const MemoList = lazy(() => import('./pages/memo/MemoList'));
+const CreateMemo = lazy(() => import('./pages/memo/CreateMemo'));
+const MyMemos = lazy(() => import('./pages/memo/MyMemos'));
+const MemoDetail = lazy(() => import('./pages/memo/MemoDetail'));
+const PendingMemoReviews = lazy(() => import('./pages/memo/PendingMemoReviews'));
+const PendingMemoApprovals = lazy(() => import('./pages/memo/PendingMemoApprovals'));
 
 function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>Loading…</div>}>
       <Routes>
         <Route path="/login" element={<Login />} />
         {/* First-login password change: protected but standalone (no chrome). */}
@@ -103,6 +105,7 @@ function App() {
           <Route path="memos/:id" element={<MemoDetail />} />
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
