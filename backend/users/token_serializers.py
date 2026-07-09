@@ -2,7 +2,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -122,3 +122,26 @@ class EmailLoginView(APIView):
                 'profile_photo': user.profile_photo.url if user.profile_photo else None,
             },
         })
+
+
+class LogoutView(APIView):
+    """
+    Blacklist the caller's refresh token so it can no longer be used to mint new
+    access tokens (M3). Requires a valid access token plus the refresh token in
+    the body.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh = request.data.get('refresh')
+        if not refresh:
+            return Response({'detail': 'A refresh token is required.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            RefreshToken(refresh).blacklist()
+        except TokenError:
+            return Response({'detail': 'Invalid or already-expired token.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        log_action(request.user, AuditLog.Action.OTHER, instance=request.user,
+                   changes={'event': 'LOGOUT'}, request=request)
+        return Response(status=status.HTTP_205_RESET_CONTENT)

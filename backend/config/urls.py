@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 
 from leaves.views import LeaveViewSet, LeaveBalanceView, LeaveCalendarView
 from users.views import CurrentUserView, UserListView, ChangePasswordView
-from users.token_serializers import EmailLoginView, SafeTokenRefreshView
+from users.token_serializers import EmailLoginView, LogoutView, SafeTokenRefreshView
 from users.admin_views import AdminUserViewSet, AdminLeaveViewSet, AdminBalanceViewSet, AdminStatsView
 from config.health_views import HealthView, DetailedHealthView
 
@@ -28,6 +28,7 @@ urlpatterns = [
     # Auth APIs (JWT Authentication)
     path('api/v1/auth/login/', EmailLoginView.as_view(), name='token_obtain_pair'),
     path('api/v1/auth/refresh/', SafeTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/v1/auth/logout/', LogoutView.as_view(), name='token_logout'),
     # Registration removed in Phase 2.5 (admin-created accounts only).
     path('api/v1/auth/user/', CurrentUserView.as_view(), name='token_user'),
     path('api/v1/auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
