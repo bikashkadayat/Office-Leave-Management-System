@@ -112,6 +112,25 @@ class MemoApprovalStep(models.Model):
         return f"{self.memo.memo_number} - step {self.step_order} - {self.action}"
 
 
+class MemoNumberSequence(models.Model):
+    """
+    Per-(type_code, year) counter that hands out gap-free, race-safe memo
+    sequence numbers. services.generate_memo_number() locks the matching row
+    with select_for_update() and increments last_value, so two concurrent
+    creations can never collide (H4), and the authoritative integer counter
+    removes the old lexical-sort bug at 10000+ (5-digit seq).
+    """
+    type_code = models.CharField(max_length=8)
+    year = models.PositiveIntegerField()
+    last_value = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("type_code", "year")
+
+    def __str__(self):
+        return f"{self.type_code}-{self.year}: {self.last_value}"
+
+
 class MemoTemplate(models.Model):
     """
     Admin-editable content template used to prefill new memos of a given type.

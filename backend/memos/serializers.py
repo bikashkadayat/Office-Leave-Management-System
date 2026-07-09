@@ -1,3 +1,4 @@
+import magic
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
@@ -10,6 +11,24 @@ User = get_user_model()
 # of truth for what the API will accept).
 MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_ATTACHMENT_EXTENSIONS = {"pdf", "docx", "xlsx", "png", "jpg", "jpeg"}
+
+# Real content types the file must actually be (magic-byte sniff), keyed by
+# extension. docx/xlsx are ZIP containers, so libmagic reports the OOXML type
+# or a generic zip depending on version - both are accepted (H3).
+ALLOWED_ATTACHMENT_MIMES = {
+    "pdf": {"application/pdf"},
+    "png": {"image/png"},
+    "jpg": {"image/jpeg"},
+    "jpeg": {"image/jpeg"},
+    "docx": {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/zip",
+    },
+    "xlsx": {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/zip",
+    },
+}
 
 
 class UserMiniSerializer(serializers.ModelSerializer):
@@ -179,6 +198,16 @@ class MemoCreateSerializer(serializers.ModelSerializer):
             allowed = ", ".join(sorted(ALLOWED_ATTACHMENT_EXTENSIONS))
             raise serializers.ValidationError(
                 f"Unsupported file type '.{ext}'. Allowed types: {allowed}."
+            )
+
+        # H3: sniff the real content type from the magic bytes and reject a file
+        # whose bytes do not match its extension (e.g. HTML renamed to .pdf).
+        head = value.read(2048)
+        value.seek(0)
+        detected = magic.from_buffer(head, mime=True)
+        if detected not in ALLOWED_ATTACHMENT_MIMES.get(ext, set()):
+            raise serializers.ValidationError(
+                f"File content ('{detected}') does not match the '.{ext}' extension."
             )
         return value
 

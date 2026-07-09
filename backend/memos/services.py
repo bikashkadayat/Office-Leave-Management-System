@@ -108,21 +108,26 @@ def generate_memo_number(memo_type):
     (e.g. NIFN-HR-2026-0042). The sequence resets each calendar year and is
     scoped per type code.
 
-    A row-level lock over the existing memos with this prefix guarantees
-    uniqueness even under concurrent creation.
+    Numbers are handed out by an authoritative per-(type, year) counter row
+    (MemoNumberSequence). We ensure the row exists, then lock it with
+    select_for_update() and increment - so concurrent creations serialize on
+    the lock instead of racing on a "max existing number" read (H4). The
+    integer counter also removes the previous lexical-sort bug beyond 9999.
     """
+    from .models import MemoNumberSequence
+
     type_code = MEMO_TYPE_CODES.get(memo_type, "GEN")
     year = timezone.now().year
-    prefix = f"NIFN-{type_code}-{year}-"
 
-    last = (
-        Memo.objects.select_for_update()
-        .filter(memo_number__startswith=prefix)
-        .order_by("-memo_number")
-        .first()
+    # get_or_create is safe under the unique constraint if two creators race to
+    # create the first row of the year; the loser retries the get.
+    MemoNumberSequence.objects.get_or_create(type_code=type_code, year=year)
+    seq = MemoNumberSequence.objects.select_for_update().get(
+        type_code=type_code, year=year
     )
-    last_seq = int(last.memo_number.rsplit("-", 1)[-1]) if last else 0
-    return f"{prefix}{last_seq + 1:04d}"
+    seq.last_value += 1
+    seq.save(update_fields=["last_value"])
+    return f"NIFN-{type_code}-{year}-{seq.last_value:04d}"
 
 
 # ---------------------------------------------------------------------------
